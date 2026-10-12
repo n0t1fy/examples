@@ -51,7 +51,24 @@ Settings, all optional except the key:
 | `NOTIFY_API_KEY` | Your key. Required. |
 | `NOTIFY_TO` | The recipient, `+9955` and eight digits. Required with a live key; with a test key it defaults to `+995500000000`. |
 | `NOTIFY_LOCALE` | `ka` (Georgian, the default) or `en`. |
-| `NOTIFY_BASE_URL` | Defaults to `https://api.n0t1fy.dev`. |
+| `NOTIFY_BASE_URL` | Defaults to `https://api.n0t1fy.dev`. It must start with `https://`. Plain `http://` carries the key unencrypted, so it is accepted only for a server on your own machine: `http://localhost`, `http://127.0.0.1` or `http://[::1]`. |
+
+## Or let your coding agent try it (MCP)
+
+NOTIFY also runs a hosted MCP server, so Claude Code and other MCP clients can get a test key,
+send a test code and read its status as tools. There is nothing to install and no key to set up
+first:
+
+```bash
+claude mcp add --transport http notify https://api.n0t1fy.dev/mcp
+```
+
+Then ask your agent: "Get a NOTIFY test key and send a test verification code to
++995500000000." With a test key nothing is really sent and nothing is charged. Use a test key
+with the MCP server; your application's own code holds the live key. The settings for
+`.mcp.json` and other clients are at
+[n0t1fy.dev/api#mcp-server](https://n0t1fy.dev/api#mcp-server). The tools are for trying NOTIFY
+while you build: your application's own code calls the HTTP API, as the programs here do.
 
 ## 3. The same with curl, step by step
 
@@ -106,11 +123,37 @@ NOTIFY does not call your application back: read the message to learn what happe
 
 Poll only while the status is `queued` or `submitted`. Start after about 2 seconds and double the
 wait, up to 30 seconds. **Always set a time limit** (the examples use two minutes). When it
-passes, record the message as unconfirmed and do not send it again.
+passes, record the message as unconfirmed and do not send it again. A read that gets no answer,
+a `429` or a `5xx` changes nothing: keep polling. A read refused with `401`, `403` or `404` will
+not change by waiting: stop, and log the `error.code`.
 
-A `503 provider_unavailable` means nothing was sent: retry with the same `Idempotency-Key`. Any
-other error answers with `error.code`, an `error.message` that says what to change, and a
-`request_id` to quote when you ask for help.
+A `503 provider_unavailable` means nothing was sent: retry with the same `Idempotency-Key`. No
+answer at all, or another `5xx`, means the SMS may or may not have been sent: retry the same
+request with the same `Idempotency-Key`, and never send a new code automatically. The examples
+retry no answer and a `500`, `502`, `503` or `504`, three attempts 5 seconds apart, and stop at
+once on any other `5xx`. Any other error answers with `error.code`, an
+`error.message` that says what to change, and a `request_id` to quote when you ask for help.
+
+## Checking the code
+
+NOTIFY sends the code; your application creates, stores and checks it:
+
+- Create it with a cryptographically secure generator, as these examples do.
+- Store only an HMAC of it (a hash keyed with a secret only your server knows), with its user,
+  the number it was sent to, what it is for, an expiry of about ten minutes, and a count of
+  wrong attempts. A new code replaces the previous one for the same user and purpose.
+- Limit sends per phone number, per user and per IP address (for example one a minute and five
+  an hour per phone number): every live SMS costs a credit.
+- Compare the typed code in constant time. Reject one that has expired, was made for another
+  purpose, or is checked for a number other than the number it was sent to. Discard it after
+  about five wrong attempts, and delete it on success, so each code works only once.
+- Let the user type the code as soon as the send returns `201` (or `200`, when a retry with the
+  same `Idempotency-Key` gets the original message) and the status is not `failed`: do not wait
+  for `delivered`. These examples poll until the message settles only to show every status;
+  a sign-in page should not. After `undeliverable`, or `failed` with `invalid_recipient`, ask
+  the user to check the number; any other `failed` code is a problem on your side or NOTIFY's.
+
+The [API reference](https://n0t1fy.dev/api#checking-codes) explains each step.
 
 ## Test recipients
 
@@ -142,6 +185,8 @@ Everything above works without a browser. The full contract, in formats made for
 - [llms.txt](https://n0t1fy.dev/llms.txt): integration rules in one page
 - [api.md](https://n0t1fy.dev/api.md): the API reference in Markdown
 - [openapi.json](https://api.n0t1fy.dev/openapi.json): the OpenAPI document
+- [MCP server](https://n0t1fy.dev/api#mcp-server): `https://api.n0t1fy.dev/mcp`, the same
+  operations as tools
 
 ## Links
 
