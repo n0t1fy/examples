@@ -40,7 +40,7 @@ LOCALE=$(setting NOTIFY_LOCALE ka) # "ka" (Georgian, the default) or "en"
 # A test key never sends a real SMS, so any valid number works; this one becomes
 # `delivered`. A live key sends a real SMS, so it needs NOTIFY_TO.
 case "$API_KEY" in
-  sk_test_*) TO=$(setting NOTIFY_TO +995500000000) ;;
+  sk_test_*) TO=$(setting NOTIFY_TO +995512345670) ;;
   *) TO=$(setting NOTIFY_TO) ;;
 esac
 [ -n "$TO" ] || stop "A live key sends a real SMS: set NOTIFY_TO to the +9955XXXXXXXX number expecting this code."

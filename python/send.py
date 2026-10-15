@@ -27,7 +27,7 @@ API_KEY = setting("NOTIFY_API_KEY")
 LOCALE = setting("NOTIFY_LOCALE", "ka")  # "ka" (Georgian, the default) or "en"
 # A test key never sends a real SMS, so any valid number works; this one becomes
 # `delivered`. A live key sends a real SMS, so it needs NOTIFY_TO.
-TEST_RECIPIENT = "+995500000000"
+TEST_RECIPIENT = "+995512345670"
 # Give up on one request after this long, so a stuck network never blocks your app.
 REQUEST_TIMEOUT_SECONDS = 15
 # Stop polling after this long. A test message usually settles within 30 seconds.

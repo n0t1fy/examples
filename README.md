@@ -49,7 +49,7 @@ Settings, all optional except the key:
 | Variable | Meaning |
 | --- | --- |
 | `NOTIFY_API_KEY` | Your key. Required. |
-| `NOTIFY_TO` | The recipient, `+9955` and eight digits. Required with a live key; with a test key it defaults to `+995500000000`. |
+| `NOTIFY_TO` | The recipient, `+9955` and eight digits. Required with a live key; with a test key it defaults to `+995512345670`. |
 | `NOTIFY_LOCALE` | `ka` (Georgian, the default) or `en`. |
 | `NOTIFY_BASE_URL` | Defaults to `https://api.n0t1fy.dev`. It must start with `https://`. Plain `http://` carries the key unencrypted, so it is accepted only for a server on your own machine: `http://localhost`, `http://127.0.0.1` or `http://[::1]`. |
 
@@ -64,7 +64,7 @@ claude mcp add --transport http notify https://api.n0t1fy.dev/mcp
 ```
 
 Then ask your agent: "Get a NOTIFY test key and send a test verification code to
-+995500000000." With a test key nothing is really sent and nothing is charged. Use a test key
++995512345670." With a test key nothing is really sent and nothing is charged. Use a test key
 with the MCP server; your application's own code holds the live key. The settings for
 `.mcp.json` and other clients are at
 [n0t1fy.dev/api#mcp-server](https://n0t1fy.dev/api#mcp-server). The tools are for trying NOTIFY
@@ -83,7 +83,7 @@ curl -sS -X POST https://api.n0t1fy.dev/v1/messages \
   -H "Idempotency-Key: $(uuidgen)" \
   -H 'Content-Type: application/json' \
   --data '{
-    "to": "+995500000000",
+    "to": "+995512345670",
     "template": "verification_code",
     "variables": { "code": "482913" },
     "locale": "en"
@@ -134,9 +134,46 @@ retry no answer and a `500`, `502`, `503` or `504`, three attempts 5 seconds apa
 once on any other `5xx`. Any other error answers with `error.code`, an
 `error.message` that says what to change, and a `request_id` to quote when you ask for help.
 
+## Let NOTIFY check the code
+
+NOTIFY can also make the code, send it and check what the user types, so your application never
+stores a code at all:
+
+1. `POST /v1/verifications` with `{ "to": "+995591234567" }` and a new `Idempotency-Key`. NOTIFY
+   sends a random six-digit code and answers `201` with a verification `id`. Show the code field
+   at once.
+2. `POST /v1/verifications/{id}/check` with the same number and the code the user typed:
+   `{ "to": "+995591234567", "code": "482913" }`.
+
+Let the user in only when a check answers `200` with status `approved`; treat every other
+answer, a timeout and a network error as not approved. A code works for 10 minutes and five
+checks, once, and a new start for the same number replaces it. Do not retry a check by itself:
+every check spends an attempt.
+
+With a test key, use the test numbers `+995512345670` to `+995512345679`: their code is always
+`000000`, and nothing is sent.
+
+```bash
+curl -q -sS -X POST https://api.n0t1fy.dev/v1/verifications \
+  -H "Authorization: Bearer $NOTIFY_API_KEY" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -H 'Content-Type: application/json' \
+  --data '{ "to": "+995512345670" }'
+```
+
+```bash
+curl -q -sS -X POST https://api.n0t1fy.dev/v1/verifications/ver_your_id_here/check \
+  -H "Authorization: Bearer $NOTIFY_API_KEY" \
+  -H 'Content-Type: application/json' \
+  --data '{ "to": "+995512345670", "code": "000000" }'
+```
+
+The [API reference](https://n0t1fy.dev/api#verifications) lists every answer.
+
 ## Checking the code
 
-NOTIFY sends the code; your application creates, stores and checks it:
+If your application makes its own codes and sends them with `POST /v1/messages`, as these
+examples do, it creates, stores and checks them:
 
 - Create it with a cryptographically secure generator, as these examples do.
 - Store only an HMAC of it (a hash keyed with a secret only your server knows), with its user,
@@ -161,13 +198,13 @@ With a test key, these numbers act out the cases your code must handle:
 
 | Recipient | What happens |
 | --- | --- |
-| `+995500000001` | `201` with `failed`: the provider refused it. |
-| `+995500000002` | `503 provider_unavailable`: retry-safe. |
-| `+995500000003` | `201` with `unknown`: do not retry automatically. |
-| `+995500000004` | `201` with `submitted`, then `undeliverable`. |
+| `+995512345671` | `201` with `failed`: the provider refused it. |
+| `+995512345672` | `503 provider_unavailable`: retry-safe. |
+| `+995512345673` | `201` with `unknown`: do not retry automatically. |
+| `+995512345674` | `201` with `submitted`, then `undeliverable`. |
 | Any other valid number | `201` with `submitted`, then `delivered`. |
 
-Both later outcomes usually take 5 to 30 seconds. Try one: `NOTIFY_TO=+995500000004 node node/send.mjs`.
+Both later outcomes usually take 5 to 30 seconds. Try one: `NOTIFY_TO=+995512345674 node node/send.mjs`.
 
 ## Going live
 
@@ -186,7 +223,7 @@ Everything above works without a browser. The full contract, in formats made for
 - [api.md](https://n0t1fy.dev/api.md): the API reference in Markdown
 - [openapi.json](https://api.n0t1fy.dev/openapi.json): the OpenAPI document
 - [MCP server](https://n0t1fy.dev/api#mcp-server): `https://api.n0t1fy.dev/mcp`, the same
-  operations as tools
+  operations as tools, `start_verification` and `check_verification` included
 
 ## Links
 
