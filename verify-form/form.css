@@ -1,0 +1,56 @@
+/* The verification form's look. Replace it with your own styles. */
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 16px;
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #1c2430;
+  background: #f4f6f8;
+}
+.card {
+  max-width: 26rem;
+  margin: 8vh auto 0;
+  padding: 24px;
+  background: #fff;
+  border: 1px solid #dde3ea;
+  border-radius: 12px;
+}
+h1 { margin: 0 0 16px; font-size: 1.35rem; line-height: 1.3; }
+label { display: block; margin: 0 0 6px; font-weight: 600; }
+form > p { margin: 0 0 16px; }
+input {
+  width: 100%;
+  padding: 10px 12px;
+  font: inherit;
+  border: 1px solid #b9c3cf;
+  border-radius: 8px;
+}
+#code { font-size: 1.4rem; letter-spacing: 0.3em; }
+.phone { display: flex; align-items: center; gap: 8px; }
+.phone span { font-weight: 600; }
+button {
+  font: inherit;
+  cursor: pointer;
+  border-radius: 8px;
+}
+button[type="submit"] {
+  width: 100%;
+  margin-top: 16px;
+  padding: 10px 12px;
+  color: #fff;
+  background: #1f5fd1;
+  border: 0;
+}
+button:disabled { opacity: 0.55; cursor: default; }
+button:focus-visible, input:focus-visible { outline: 3px solid #8fb4f5; outline-offset: 2px; }
+.row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 12px; }
+.quiet { padding: 8px 10px; color: #1f5fd1; background: #fff; border: 1px solid #b9c3cf; }
+.link { padding: 8px 0; color: #1f5fd1; background: none; border: 0; text-decoration: underline; }
+.languages { display: flex; justify-content: flex-end; gap: 6px; margin-bottom: 8px; }
+.languages button { padding: 4px 8px; font-size: 0.85rem; background: #fff; border: 1px solid #dde3ea; }
+.languages button[aria-pressed="true"] { border-color: #1f5fd1; color: #1f5fd1; }
+.notice { min-height: 1.5em; margin: 16px 0 0; color: #a3271f; }
+.done { color: #1d7a3a; font-weight: 600; }
+/* The script moves the focus here so that it is read out; it is not a control. */
+.done:focus { outline: none; }
+form > p.sent-to { margin: -12px 0 16px; color: #56606d; font-variant-numeric: tabular-nums; }

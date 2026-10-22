@@ -10,7 +10,8 @@ has been approved for your project.
 
 These examples use plain HTTP with no SDK: Node, Python and curl. Each one sends a verification
 code with a test key, then polls the message until it settles. A test key never sends a real
-SMS and costs nothing.
+SMS and costs nothing. [`verify-form/`](#a-verification-form-to-copy) is a whole verification
+step for a sign-up or sign-in page: the page, and the two server routes behind it.
 
 ## 1. Get a test key (no account)
 
@@ -170,6 +171,95 @@ curl -q -sS -X POST https://api.n0t1fy.dev/v1/verifications/ver_your_id_here/che
 
 The [API reference](https://n0t1fy.dev/api#verifications) lists every answer.
 
+## A verification form to copy
+
+`verify-form/` is a phone verification step you can copy into your sign-up or sign-in page: a
+page that asks for a Georgian mobile number and the code NOTIFY texts to it, and the two server
+routes behind it. Node 22 or newer, no packages:
+
+```bash
+node verify-form/server.mjs
+```
+
+Open `http://localhost:3000`. With a test key, use the test number `+995512345670` and the code
+`000000`; nothing is sent. `+995512345671` to `+995512345674` act out failures (see
+[Test recipients](#test-recipients)).
+
+How it is built, and what to keep when you copy it:
+
+- **The key stays on the server.** The page talks only to its own server, `POST /verify/start`
+  and `POST /verify/check`, never to NOTIFY.
+- **The browser sends only the number, the code and its language.** The server keeps the number
+  the code was sent to in the session, and a check always uses that number.
+- **Only a check's `200` with status `approved` confirms the number.** Every other answer, a
+  timeout included, is "not confirmed". A check is never retried by itself.
+- **"Try again" repeats a start instead of sending a second code**: a start that got no answer
+  (for ten minutes, while its code could still work), or the start of the code the browser
+  already holds, while a new code would still wait (the page lost the answer, or was reloaded).
+  The repeat has the same `Idempotency-Key`, number and language, so NOTIFY answers with the
+  original code and sends nothing. A check whose approval the page lost gets the same answer when
+  the same code is typed again; any other code ends it.
+- **The form keeps its own limits, on top of NOTIFY's**: one code a minute and five an hour to one
+  number (NOTIFY's own hour is five too, and its ten in 24 hours also comes back as "too many
+  codes"), and ten an hour from one address, where an IPv6 `/64` network counts as one address.
+  "Send a new code" opens when these limits would allow a new code. A start NOTIFY refuses (no
+  credits left, an SMS the provider refused, a limit of NOTIFY's) counts against none of them, as
+  at NOTIFY, and every refusal is logged with NOTIFY's error code and `request_id`. Add a bot
+  check (a CAPTCHA) to the phone step: every live code costs a credit, and a form that texts any
+  number is what an abuser looks for.
+- **Sessions and counts live in the server's memory.** A session (the number, the code the user
+  may type, a lost start) is made only once NOTIFY takes a start, and lasts 30 minutes from its
+  last use, as its cookie does. In production keep the sessions and the counts in your database
+  or Redis: with two instances, a cluster or a serverless host, a check would find no session,
+  and a restart forgets lost starts, so the next try would send a second code.
+- **Behind a reverse proxy, the address is the proxy's.** Change `visitorAddress()` in
+  `server.mjs` to read the address your own proxy appends to `X-Forwarded-For` (the last entry,
+  behind one proxy), never an entry the visitor could have written; in Express,
+  `app.set("trust proxy", 1)` and `request.ip`. Otherwise every visitor shares one address, and
+  the whole site gets ten codes an hour.
+- **Only its own page may call the routes.** Each route first calls `refused()`, which answers
+  `403` when the `Origin` header is not the page's, and `415` when the request is not
+  `Content-Type: application/json`, which a page on another site cannot send without asking
+  first. The routes need no cookie, and many frameworks read a `text/plain` body as JSON all the
+  same, so without `refused()` any site could make its visitors' browsers ask for codes.
+- **The user never sees an error code**: one sentence in English or Georgian for each case. When a
+  limit is reached, the sentence says how long to wait and goes when the wait ends, and the
+  "Send a new code" button stays off until then, counting down its last 90 seconds.
+
+To use it in your app, copy the two routes and `refused()` into your backend, and `index.html`,
+`form.js` and `form.css` into your frontend. Keep what the rest of `server.mjs` does around them,
+in your framework's own way:
+
+- the `Host` check: a request for any other host name gets `421`, which stops a DNS rebinding
+  attack (another site's name pointed at your server). Serve the page and the routes on one
+  host, and behind a reverse proxy pass the `Host` header through (nginx:
+  `proxy_set_header Host $host;`, Apache: `ProxyPreserveHost On`), or every request gets `421`;
+- a body of at most 1 KiB, and a JSON object;
+- these response headers: `Content-Security-Policy` with `default-src 'none'`, `script-src
+  'self'`, `style-src 'self'`, `connect-src 'self'`, `form-action 'self'`, `base-uri 'none'` and
+  `frame-ancestors 'none'`; `X-Content-Type-Options: nosniff`; `Referrer-Policy: no-referrer`;
+  and `Cache-Control: no-store` on the routes' answers;
+- the session cookie: `HttpOnly`, `SameSite=Strict`, and on an `https` site `Secure` and the
+  `__Host-` prefix, which only your host may set;
+- a live key on a public site: `server.mjs` refuses to start with a test key when `SITE_ORIGIN` is
+  a public address, because the page's hint then tells every visitor the test number and its
+  code, and `000000` lets anyone through. That check runs at start-up, outside the two routes, so
+  your own backend must make it too: never deploy a test key.
+
+Each refusal (`403`, `415`, `421`, `413`, `400`) answers a short error and logs its reason.
+
+At the comment "This is where your app records `to`" in `server.mjs`, store `to` for your user:
+the number the code was sent to, read once before the check waited on NOTIFY. Never read the
+number from the session again there: another request of the same browser may have changed it
+meanwhile. If that signs the user in, start a fresh session of your app there rather than keep
+the one from before the sign-in. The settings, beside `NOTIFY_API_KEY` and `NOTIFY_BASE_URL`:
+
+| Variable | Meaning |
+| --- | --- |
+| `SITE_ORIGIN` | The address people open the page at, such as `https://www.example.ge`, where the routes answer too. Without it, only `http://localhost` and `http://127.0.0.1` on this port are allowed. Plain `http://` is for this machine only. With a public address the server needs a live key: it refuses a test key, whose hint would tell every visitor the test numbers and their code. |
+| `PORT` | A number from `0` to `65535`; defaults to `3000`. |
+| `HOST` | Defaults to `127.0.0.1`, this machine only. |
+
 ## Checking the code
 
 If your application makes its own codes and sends them with `POST /v1/messages`, as these
@@ -212,12 +302,15 @@ A test key stays a test key. Real SMS need an `sk_live_…` key: sign in at
 [n0t1fy.dev/login](https://n0t1fy.dev/login) with GitHub or Google, and create one on the
 dashboard. A new account gets 100 free real SMS (up to 20 a day, while the free allowance
 lasts); after that, see
-[pricing](https://n0t1fy.dev/pricing). With a live key, these examples refuse to run until
-`NOTIFY_TO` is set, so they never text a made-up number.
+[pricing](https://n0t1fy.dev/pricing). With a live key, the three send programs refuse to run
+until `NOTIFY_TO` is set, so they never text a made-up number. The verification form refuses a
+test key when `SITE_ORIGIN` is a public address: with a test key, its page tells a user who types
+a real number the test numbers and their code.
 
 ## For AI coding agents
 
-Everything above works without a browser. The full contract, in formats made for you:
+Everything above works without a browser, apart from the form's page. The full contract, in
+formats made for you:
 
 - [llms.txt](https://n0t1fy.dev/llms.txt): integration rules in one page
 - [api.md](https://n0t1fy.dev/api.md): the API reference in Markdown

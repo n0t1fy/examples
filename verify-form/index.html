@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Confirm your phone number</title>
+    <link rel="stylesheet" href="/form.css">
+    <script type="module" src="/form.js"></script>
+  </head>
+  <body>
+    <main class="card">
+      <div class="languages">
+        <button type="button" data-lang="en">English</button>
+        <button type="button" data-lang="ka" lang="ka">ქართული</button>
+      </div>
+      <h1 data-text="title">Confirm your phone number</h1>
+
+      <form id="phone-step" novalidate>
+        <label for="phone" data-text="phoneLabel">Mobile number</label>
+        <div class="phone">
+          <span aria-hidden="true">+995</span>
+          <input id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel-national"
+                 placeholder="5XX XX XX XX" required>
+        </div>
+        <button type="submit" id="send" data-text="send" disabled>Send code</button>
+      </form>
+
+      <form id="code-step" novalidate hidden>
+        <p data-text="sent">We sent a code to your phone. Enter it below.</p>
+        <p id="sent-to" class="sent-to"></p>
+        <label for="code" data-text="codeLabel">Code</label>
+        <input id="code" name="code" inputmode="numeric" autocomplete="one-time-code" required>
+        <button type="submit" id="verify" data-text="verify" disabled>Verify</button>
+        <div class="row">
+          <button type="button" id="resend" class="quiet" data-text="resend">Send a new code</button>
+          <button type="button" id="change" class="link" data-text="change">Use another number</button>
+        </div>
+      </form>
+
+      <p id="done" class="done" data-text="verified" tabindex="-1" hidden>Your phone number is confirmed.</p>
+      <p id="notice" class="notice" role="status" aria-live="polite"></p>
+    </main>
+  </body>
+</html>
