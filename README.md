@@ -91,9 +91,42 @@ curl -sS -X POST https://api.n0t1fy.dev/v1/messages \
   }'
 ```
 
-Leave out `"locale"` for the Georgian text. There is no free-text field: the three templates are
-`verification_code` and `login_code` (variable `code`, 4 to 8 digits) and `password_reset_code`
-(`code` and `minutes`). Every variable value is a JSON string.
+Leave out `"locale"` for the Georgian text. There is no free-text field: every message is one of
+these templates, and every variable value is a JSON string.
+
+| Template | Goes to | Variables |
+| --- | --- | --- |
+| `verification_code` | any number | `code` (4 to 8 digits) |
+| `login_code` | any number | `code` |
+| `password_reset_code` | any number | `code`, `minutes` (1 to 999) |
+| `service_down` | your team only | `service` (a name on your team page) |
+| `service_up` | your team only | `service` |
+| `incident_opened` | your team only | `incident` (1 to 8 digits) |
+| `support_ticket_urgent` | your team only | `ticket` (1 to 8 digits) |
+| `job_failed` | your team only | `job` (a name on your team page) |
+| `agent_alert` | your team only | `agent` (`your_agent` or `ai_assistant`), `count` (1 to 99) |
+
+Their full text, in English and Georgian: [n0t1fy.dev/templates](https://n0t1fy.dev/templates).
+The team templates are team alerts: they go only to numbers confirmed on your project's team,
+which the project's owner adds on the dashboard (each number gets a code to read back). With a
+test key they go to the test numbers only:
+
+```bash
+curl -sS -X POST https://api.n0t1fy.dev/v1/messages \
+  -H "Authorization: Bearer $NOTIFY_API_KEY" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -H 'Content-Type: application/json' \
+  --data '{
+    "to": "+995512345670",
+    "template": "service_down",
+    "variables": { "service": "payments-api" },
+    "locale": "en"
+  }'
+```
+
+Any other number answers `403 recipient_not_on_team`, and nothing is sent: ask the project's
+owner to add it on the dashboard's team page. With a live key, `payments-api` must also be on
+the names list on that page.
 
 The answer is `201` with a message object. Read its `status`: `201` means the message exists,
 not that it arrived.
